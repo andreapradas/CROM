@@ -2,8 +2,7 @@ clear
 close all
 clc
 %% Data reading from the file of Patients
-Patient_ID = 10;
-
+Patient_ID = 32;
 opts = delimitedTextImportOptions("NumVariables", 13);
 opts.DataLines = [2, Inf];
 opts.Delimiter = ",";
@@ -62,23 +61,21 @@ PteH_aX_NoOffset = PteH.aX - mean_aX;
 
 % Filter the signal
 Freq = 90; % Cuantas muestras se cogen por unidad de tiempo (es una funcion discretizada)
-fc = 10; % 
+fc = 10; % FNyquist fmuestreo = 2*frecmax de la señal; en una persona atleta 3-4 entonces el doble para personas normales
 [b,a] = butter(4,fc/(Freq/2));
 PteH_aX_Filtered = filtfilt(b,a,PteH_aX_NoOffset);
 
 figure(1);
-subplot(1,2,1);
+%subplot(1,2,1);
 plot(PteH_aX_Filtered);
 yline(0, 'm--', 'LineWidth', 1);
 title("PteH aX Filtered");
-
 % Obtain the movement complete (warm up included)
-[~, locs_MAX_F] = findpeaks(PteH_aX_Filtered,'MinPeakHeight',30,'MinPeakDistance',100,'SortStr','ascend');
+[~, locs_MAX_F] = findpeaks(PteH_aX_Filtered,'MinPeakHeight',33,'MinPeakDistance',150,'SortStr','ascend');
 aX_inv = -PteH_aX_Filtered;
-[~,locs_MIN_F] = findpeaks(aX_inv,'MinPeakHeight',25,'MinPeakDistance',100,'SortStr','ascend');
+[~,locs_MIN_F] = findpeaks(aX_inv,'MinPeakHeight',25,'MinPeakDistance',150,'SortStr','ascend');
 peak_locs = sort([locs_MAX_F(:); locs_MIN_F(:)]); % Las pos en el eje X de todos los picos
-% Find out if the mov. is correctly done
-mean_durations = zeros(1, 6);
+mean_durations = zeros(1, 6);% Find out if the mov. is correctly done
 for i = 1:6
     mean_durations(i) = round(peak_locs(2*i) - peak_locs(2*i - 1));
 end
@@ -87,14 +84,15 @@ if length(peak_locs) == 12
     end_index = peak_locs(12) + mean_durations(6);
     PteH_aX_Mov = PteH_aX_Filtered(start_index:end_index);
 else 
-    disp("The FLEXO-EXTENSION has been done incorrectly by the participant.");
+    disp("The FLEXION-EXTENSION has been done incorrectly by the participant.");
     return;
 end
-
 subplot(1,2,2);
 plot(PteH_aX_Mov);
 yline(0, 'm--', 'LineWidth', 1);
-title("Flexo-Extension WITH WARM UP");
+title("Flexion-Extension WITH WARM UP");
+xlabel("Seconds");
+ylabel("Degrees");
 
 clear i start_index end_index locs_MIN_F locs_MAX_F
 %% Separate Flexion-Extension (without warm up)
@@ -102,10 +100,10 @@ clear i start_index end_index locs_MIN_F locs_MAX_F
 first_peak = peak_locs(7); % The first peak of useful mov.
 PteH_aX_Flexion = PteH_aX_Filtered(first_peak-mean_durations(4):peak_locs(12)+mean_durations(6));
 
-figure(2);
-plot(PteH_aX_Flexion);
-yline(0, 'm--', 'LineWidth', 1);
-title("FLEXO-EXTENSION without warm up");
+% figure(2);
+% plot(PteH_aX_Flexion);
+% yline(0, 'm--', 'LineWidth', 1);
+% title("FLEXO-EXTENSION without warm up");
 
 % The signal without the rest time position
 min_segment_length = 150;
@@ -121,7 +119,7 @@ PteH_aX(1:length(FERep1),1) = FERep1;
 PteH_aX(length(FERep1)+1:length(FERep1)+length(FERep2),1) = FERep2;
 PteH_aX(length(FERep1)+length(FERep2)+1:length(FERep1)+length(FERep2)+length(FERep3),1) = FERep3;
 
-figure(3);
+%     figure(3);
 plot(PteH_aX);
 yline(0, 'm--', 'LineWidth', 1);
 title("Repetions of Flex-Ext");
@@ -129,14 +127,28 @@ title("Repetions of Flex-Ext");
 clear peak_locs first_peak last_peak mean_durations contiguous_segments rest_position
 
 %% Calculate the CROM FE
-[~,locs_MAX_F] = findpeaks(PteH_aX,'MinPeakHeight',30,'MinPeakDistance',20);
+[~,locs_MAX_F] = findpeaks(PteH_aX,'MinPeakHeight',33,'MinPeakDistance',150);
 aX_inv = -PteH_aX;
-[~,locs_MIN_F] = findpeaks(aX_inv,'MinPeakHeight',30,'MinPeakDistance',20);
- Flexion = (PteH_aX(locs_MAX_F)-PteH_aX(locs_MIN_F));
- Flexion = transpose(Flexion);
- mF = mean(Flexion);
+[~,locs_MIN_F] = findpeaks(aX_inv,'MinPeakHeight',25,'MinPeakDistance',150);
+Flexion = (PteH_aX(locs_MAX_F)-PteH_aX(locs_MIN_F));
+Flexion = transpose(Flexion);
+CROM_F = mean(Flexion);
+% For the article, graphic of the CROM 
+%figure(23);
+hold on;
+plot(PteH_aX);
+stem(locs_MAX_F,PteH_aX(locs_MAX_F),'r.');
+text(locs_MAX_F + 20,PteH_aX(locs_MAX_F) +3,num2str(PteH_aX(locs_MAX_F)));
+stem(locs_MIN_F,PteH_aX(locs_MIN_F),'r.');
+text(locs_MIN_F + 20,PteH_aX(locs_MIN_F),num2str(PteH_aX(locs_MIN_F)));
 
- clear locs_MIN_F locs_MAX_F
+text((locs_MAX_F(3)+locs_MIN_F(2))/2 + 220,PteH_aX(locs_MAX_F(3)) - 100,("CROM = " + num2str(CROM_F)), 'FontSize', 10, 'FontWeight','bold');
+title('Flexion-Extension');
+yline(0, 'm--', 'LineWidth', 1);
+xlabel('Seconds');
+ylabel('Degrees');
+grid on;
+ %clear locs_MIN_F locs_MAX_F
 
 %% Calculate the Velocity for each repetition FE
 
@@ -173,7 +185,7 @@ vF(1:length(vF1),1) = vF1;
 vF(length(vF1)+1:length(vF1)+length(vF2),1) = vF2;
 vF(length(vF1)+length(vF2)+1:length(vF1)+length(vF2)+length(vF3),1) = vF3;
 
-figure(4);
+%     figure(4);
 plot(vF);
 yline(0, 'm--', 'LineWidth', 1);
 title("Velocity of Flex-Ext Movement");
@@ -195,7 +207,11 @@ vFMin = [vF1Min,vF2Min,vF3Min,vFMinMean];
 vFabs = abs(vF);
 MPDv = int16(length(vF)/9*0.6);
 [~,locs_MAX_Fv] = findpeaks(vFabs,'MinPeakHeight',30,'MinPeakDistance',MPDv);
+v_inv = -vFabs;
+[~,locs_MIN_Fv] = findpeaks(v_inv,'MinPeakHeight',30,'MinPeakDistance',MPDv);
 vFm = mean(vFabs(locs_MAX_Fv));
+
+clear fcV bV aV dFERep1 dFERep2 dFERep3 vF1Max vF2Max vF3Max vF1Min vF2Min vF3Min
 
 %% Acceleration calculation FE
 
@@ -222,10 +238,12 @@ aF(1:length(aF1),1) = aF1;
 aF(length(aF1)+1:length(aF1)+length(aF2),1) = aF2;
 aF(length(aF1)+length(aF2)+1:length(aF1)+length(aF2)+length(aF3),1) = aF3;
 
-figure(5);
+%     figure(5);
 plot(aF);
 yline(0, 'm--', 'LineWidth', 1);
 title('Acceleration of Flex-Ext Movement');
+
+clear fcA bA aA aFERep1 aFERep2 aFERep3
 
 %% Smoothness calculation FE
 
@@ -252,10 +270,12 @@ sF(1:length(sF1),1) = sF1;
 sF(length(sF1)+1:length(sF1)+length(sF2),1) = sF2;
 sF(length(sF1)+length(sF2)+1:length(sF1)+length(sF2)+length(sF3),1) = sF3;
 
-figure(6);
+%     figure(6);
 plot(sF);
 yline(0, 'm--', 'LineWidth', 1);
 title('Smoothness of Flex-Ext Movement');
+
+clear fcS bS aS sFERep1 sFERep2 sFERep3 sF1 sF2 sF3
 
 %% ROTATION
 % Delete the OFFSET
@@ -292,10 +312,10 @@ else
     disp("The ROTATION has been done incorrectly by the participant.");
     return;
 end
-subplot(1,2,2);
-plot(PteH_aY_Mov);
-yline(0, 'm--', 'LineWidth', 1);
-title("Rotation WITH WARM UP");
+%     subplot(1,2,2);
+% plot(PteH_aY_Mov);
+% yline(0, 'm--', 'LineWidth', 1);
+% title("Rotation WITH WARM UP");
 
 clear i start_index end_index locs_MIN_R locs_MAX_R
 
@@ -304,10 +324,10 @@ clear i start_index end_index locs_MIN_R locs_MAX_R
 first_peak = peak_locs(7); % The first peak of useful mov.
 PteH_aY_Rotation = PteH_aY_Filtered(first_peak-mean_durations(4):peak_locs(12)+mean_durations(6));
 
-figure(8);
-plot(PteH_aY_Rotation);
-yline(0, 'm--', 'LineWidth', 1);
-title("ROTATION without warm up");
+%     figure(8);
+% plot(PteH_aY_Rotation);
+% yline(0, 'm--', 'LineWidth', 1);
+% title("ROTATION without warm up");
 
 % The signal without the rest time position
 min_segment_length = 150;
@@ -332,14 +352,26 @@ clear peak_locs first_peak last_peak mean_durations contiguous_segments rest_pos
 
 %% Calculate the CROM R
 
-[~,locs_MAX_R] = findpeaks(PteH_aY,'MinPeakHeight',40,'MinPeakDistance',20);
+[~,locs_MAX_R] = findpeaks(PteH_aY,'MinPeakHeight',40,'MinPeakDistance',60);
 aY_inv = -PteH_aY;
-[~,locs_MIN_R] = findpeaks(aY_inv,'MinPeakHeight',30,'MinPeakDistance',20);
+[~,locs_MIN_R] = findpeaks(aY_inv,'MinPeakHeight',30,'MinPeakDistance',60);
  Rotation = (PteH_aY(locs_MAX_R)-PteH_aY(locs_MIN_R));
  Rotation = transpose(Rotation);
- mR = mean(Rotation);
+ CROM_R = mean(Rotation);
+hold on;
+plot(PteH_aY);
+stem(locs_MAX_R,PteH_aY(locs_MAX_R),'r.');
+text(locs_MAX_R + 20,PteH_aY(locs_MAX_R) +3,num2str(PteH_aY(locs_MAX_R)));
+stem(locs_MIN_R,PteH_aY(locs_MIN_R),'r.');
+text(locs_MIN_R + 20,PteH_aY(locs_MIN_R),num2str(PteH_aY(locs_MIN_R)));
 
- clear locs_MIN_R locs_MAX_R
+text((locs_MAX_R(3)+locs_MIN_R(2))/2 + 220,PteH_aY(locs_MAX_R(3)) - 100,("CROM = " + num2str(CROM_R)), 'FontSize', 10, 'FontWeight','bold');
+title('Rotation');
+yline(0, 'm--', 'LineWidth', 1);
+xlabel('Seconds');
+ylabel('Degrees');
+grid on;
+clear locs_MIN_R locs_MAX_R
 
 %% Calculate the Velocity for each repetition R
 
@@ -374,7 +406,7 @@ vR(1:length(vR1),1) = vR1;
 vR(length(vR1)+1:length(vR1)+length(vR2),1) = vR2;
 vR(length(vR1)+length(vR2)+1:length(vR1)+length(vR2)+length(vR3),1) = vR3;
 
-figure(10);
+%     figure(10);
 plot(vR);
 yline(0, 'm--', 'LineWidth', 1);
 title("Velocity of Rotation Movement");
@@ -397,6 +429,8 @@ vRabs = abs(vR);
 MPDv = int16(length(vR)/9*0.6);
 [~,locs_MAX_Rv] = findpeaks(vRabs,'MinPeakHeight',30,'MinPeakDistance',MPDv);
 vRm = mean(vRabs(locs_MAX_Rv));
+
+clear fcV bV aV dRRep1 dRRep2 dRRep3 vR1Max vR2Max vR3Max vR1Min vR2Min vR3Min
 
 %% Acceleration calculation R
 
@@ -422,10 +456,12 @@ aR(1:length(aR1),1) = aR1;
 aR(length(aR1)+1:length(aR1)+length(aR2),1) = aR2;
 aR(length(aR1)+length(aR2)+1:length(aR1)+length(aR2)+length(aR3),1) = aR3;
 
-figure(11);
+%     figure(11);
 plot(aR);
 yline(0, 'm--', 'LineWidth', 1);
 title('Acceleration of Rotation Movement');
+
+clear fcA bA aA aRRep1 aRRep2 aRRep3
 
 %% Smoothness calculation R
 
@@ -451,10 +487,12 @@ sR(1:length(sR1),1) = sR1;
 sR(length(sR1)+1:length(sR1)+length(sR2),1) = sR2;
 sR(length(sR1)+length(sR2)+1:length(sR1)+length(sR2)+length(sR3),1) = sR3;
 
-figure(12);
+%     figure(12);
 plot(sR);
 yline(0, 'm--', 'LineWidth', 1);
 title('Smoothness of Rotation Movement');
+
+clear fcS bS aS sRRep1 sRRep2 sRRep3 sR1 sR2 sR3
 
 %% LATERAL INCLINATION
 % Delete the OFFSET
@@ -474,9 +512,9 @@ yline(0, 'm--', 'LineWidth', 1);
 title("PteH aZ Filtered");
 
 % Obtain the movement complete (warm up included)
-[~, locs_MAX_LI] = findpeaks(PteH_aZ_Filtered,'MinPeakHeight',30,'MinPeakDistance',100,'SortStr','ascend');
+[~, locs_MAX_LI] = findpeaks(PteH_aZ_Filtered,'MinPeakHeight',28,'MinPeakDistance',120,'SortStr','ascend');
 aZ_inv = -PteH_aZ_Filtered;
-[~,locs_MIN_LI] = findpeaks(aZ_inv,'MinPeakHeight',25,'MinPeakDistance',100,'SortStr','ascend');
+[~,locs_MIN_LI] = findpeaks(aZ_inv,'MinPeakHeight',25,'MinPeakDistance',120,'SortStr','ascend');
 peak_locs = sort([locs_MAX_LI(:); locs_MIN_LI(:)]); % Las pos en el eje X de todos los picos
 % Find out if the mov. is correctly done
 mean_durations = zeros(1, 6);
@@ -491,7 +529,7 @@ else
     disp("The LATERAL INCLINATION has been done incorrectly by the participant.");
     return;
 end
-subplot(1,2,2);
+    subplot(1,2,2);
 plot(PteH_aZ_Mov);
 yline(0, 'm--', 'LineWidth', 1);
 title("Lateral inclination WITH WARM UP");
@@ -503,7 +541,7 @@ title("Lateral inclination WITH WARM UP");
 first_peak = peak_locs(7); % The first peak of useful mov.
 PteH_aZ_Rotation = PteH_aZ_Filtered(first_peak-mean_durations(4):peak_locs(12)+mean_durations(6));
 
-figure(14);
+%     figure(14);
 plot(PteH_aZ_Rotation);
 yline(0, 'm--', 'LineWidth', 1);
 title("LATERAL INCLINATION without warm up");
@@ -522,21 +560,21 @@ PteH_aZ(1:length(LIRep1),1) = LIRep1;
 PteH_aZ(length(LIRep1)+1:length(LIRep1)+length(LIRep2),1) = LIRep2;
 PteH_aZ(length(LIRep1)+length(LIRep2)+1:length(LIRep1)+length(LIRep2)+length(LIRep3),1) = LIRep3;
 
-figure(15);
+%     figure(15);
 plot(PteH_aZ);
 yline(0, 'm--', 'LineWidth', 1);
 title("Repetions of Lateral Inclination");
 
  clear peak_locs first_peak last_peak mean_durations contiguous_segments rest_position
 
-%% Calculate the CROM R
+%% Calculate the CROM LI
 
-[~,locs_MAX_LI] = findpeaks(PteH_aZ,'MinPeakHeight',40,'MinPeakDistance',20);
+[~,locs_MAX_LI] = findpeaks(PteH_aZ,'MinPeakHeight',28,'MinPeakDistance',100);
 aZ_inv = -PteH_aZ;
-[~,locs_MIN_LI] = findpeaks(aZ_inv,'MinPeakHeight',30,'MinPeakDistance',20);
+[~,locs_MIN_LI] = findpeaks(aZ_inv,'MinPeakHeight',25,'MinPeakDistance',100);
  LateralInclination = (PteH_aZ(locs_MAX_LI)-PteH_aZ(locs_MIN_LI));
  LateralInclination = transpose(LateralInclination);
- mLI = mean(LateralInclination);
+ CROM_LI = mean(LateralInclination);
 
  clear locs_MIN_LI locs_MAX_LI
 
@@ -573,7 +611,7 @@ vLI(1:length(vLI1),1) = vLI1;
 vLI(length(vLI1)+1:length(vLI1)+length(vLI2),1) = vLI2;
 vLI(length(vLI1)+length(vLI2)+1:length(vLI1)+length(vLI2)+length(vLI3),1) = vLI3;
 
-figure(16);
+%     figure(16);
 plot(vLI);
 yline(0, 'm--', 'LineWidth', 1);
 title("Velocity of Lateral Inclination Movement");
@@ -596,6 +634,8 @@ vLIabs = abs(vLI);
 MPDv = int16(length(vLI)/9*0.6);
 [~,locs_MAX_LIv] = findpeaks(vLIabs,'MinPeakHeight',30,'MinPeakDistance',MPDv);
 vLIm = mean(vLIabs(locs_MAX_LIv));
+
+clear fcV bV aV vLI1Max vLI2Max vLI3Max
 
 %% Acceleration calculation LI
 
@@ -621,11 +661,12 @@ aLI(1:length(aLI1),1) = aLI1;
 aLI(length(aLI1)+1:length(aLI1)+length(aLI2),1) = aLI2;
 aLI(length(aLI1)+length(aLI2)+1:length(aLI1)+length(aLI2)+length(aLI3),1) = aLI3;
 
-figure(17);
+%     figure(17);
 plot(aLI);
 yline(0, 'm--', 'LineWidth', 1);
 title('Acceleration of Lateral Inclination Movement');
 
+clear fcA bA aA aLIRep1 aLIRep2 aLIRep3
 %% Smoothness calculation LI
 
 sLIRep1 = gradient(aLI1(:));
@@ -650,23 +691,37 @@ sLI(1:length(sLI1),1) = sLI1;
 sLI(length(sLI1)+1:length(sLI1)+length(sLI2),1) = sLI2;
 sLI(length(sLI1)+length(sLI2)+1:length(sLI1)+length(sLI2)+length(sLI3),1) = sLI3;
 
-figure(18);
+%     figure(18);
 plot(sLI);
 yline(0, 'm--', 'LineWidth', 1);
 title('Smoothness of Lateral Inclination Movement');
 
+clear fcS sLIRep1 sLIRep2 sLIRep3 bS aS sLI1 sLI2 sLI3
+
+%% Save the CROM data
+
+% nameFile = "CROM_Values_Automatic.csv";
+% if exist(nameFile, 'file') == 0 %If the file does NOT exist
+%     titles = {'Patient_ID', 'Flex-Ext', 'Rot', 'LatIncl'};
+%     data = [Patient_ID, CROM_F, CROM_R, CROM_LI];
+%     writecell(titles, nameFile);
+%     writematrix(data, nameFile, 'WriteMode', 'append');
+% else
+%     data = [Patient_ID, CROM_F, CROM_R, CROM_LI]; % Ajusta los datos según sea necesario
+%     writematrix(data, nameFile, 'WriteMode', 'append');
+% end
+    
 %% Comparison of the 3 movements 
 
 figure(19);
 min_length = min([length(PteH_aX), length(PteH_aY), length(PteH_aZ)]);
-PteH_aX = interp1(1:length(PteH_aX), PteH_aX, linspace(1, length(PteH_aX), min_length));
-PteH_aY = interp1(1:length(PteH_aY), PteH_aY, linspace(1, length(PteH_aY), min_length));
-PteH_aZ = interp1(1:length(PteH_aZ), PteH_aZ, linspace(1, length(PteH_aZ), min_length));
-
+PteH_aX_2 = interp1(1:length(PteH_aX), PteH_aX, linspace(1, length(PteH_aX), min_length));
+PteH_aY_2 = interp1(1:length(PteH_aY), PteH_aY, linspace(1, length(PteH_aY), min_length));
+PteH_aZ_2 = interp1(1:length(PteH_aZ), PteH_aZ, linspace(1, length(PteH_aZ), min_length));
 hold on;  
-plot(PteH_aX, 'LineWidth', 1, 'Color', 'blue', 'DisplayName', 'Flexion-Extension (X)');
-plot(PteH_aY, 'LineWidth', 1, 'Color', 'green', 'DisplayName', 'Rotation (Y)');
-plot(PteH_aZ, 'LineWidth', 1, 'Color', 'red', 'DisplayName', 'Lateral Inclination (Z)');
+plot(PteH_aX_2, 'LineWidth', 1, 'Color', 'blue', 'DisplayName', 'Flexion-Extension (X)');
+plot(PteH_aY_2, 'LineWidth', 1, 'Color', 'green', 'DisplayName', 'Rotation (Y)');
+plot(PteH_aZ_2, 'LineWidth', 1, 'Color', 'red', 'DisplayName', 'Lateral Inclination (Z)');
 yline(0, 'm--', 'LineWidth', 1, 'HandleVisibility', 'off');
 title("Comparison of the 3 different movs.");
 xlabel('Seconds');
@@ -674,7 +729,107 @@ ylabel('Degrees');
 legend('show');
 grid on;
 
-%% FUNCTIONS
+%% Comparison of amplitude and velocity
+figure(20);
+hold on;
+plot(PteH_aX, 'LineWidth', 1, 'Color', 'blue','DisplayName', 'Flexion-Extension');
+for i = 1:length(locs_MAX_F)
+    line([locs_MAX_F(i), locs_MAX_F(i)], [0, PteH_aX(locs_MAX_F(1))], 'Color', 'red', 'HandleVisibility', 'off');
+end
+for i = 1:length(locs_MIN_F)
+    line([locs_MIN_F(i), locs_MIN_F(i)], [0, PteH_aX(locs_MIN_F(i))], 'Color', 'red', 'HandleVisibility', 'off');
+end
+plot(vF, 'LineWidth', 1, 'Color', 'black','DisplayName', 'Velocity');
+yline(0, 'm--', 'LineWidth', 1, 'HandleVisibility', 'off');
+title("Flexion-Extension");
+xlabel("Seconds");
+ylabel("Degrees");
+legend('show');
+grid on;
+
+%% Comparison of velocity and acceleration
+figure(21);
+hold on;
+plot(vF, 'LineWidth', 1, 'Color', 'blue','DisplayName', 'Velocity');
+for i = 1:length(locs_MAX_Fv)%CAMBIAR
+    line([locs_MAX_Fv(i), locs_MAX_Fv(i)], [0, PteH_aX(locs_MAX_Fv(1))], 'Color', 'red', 'HandleVisibility', 'off');
+end
+for i = 1:length(locs_MIN_Fv)
+    line([locs_MIN_Fv(i), locs_MIN_Fv(i)], [0, PteH_aX(locs_MIN_Fv(i))], 'Color', 'red', 'HandleVisibility', 'off');
+end
+plot(aF, 'LineWidth', 1, 'Color', 'black','DisplayName', 'Acceleration');
+yline(0, 'm--', 'LineWidth', 1, 'HandleVisibility', 'off');
+title("Flexion-Extension");
+xlabel("Seconds");
+ylabel("Degrees");
+legend('show');
+grid on;
+%% Comparison of acceleration and smoothness
+figure(22);
+hold on;
+plot(aF, 'LineWidth', 1, 'Color', 'blue','DisplayName', 'Acceleration');
+for i = 1:length(locs_MAX_F)%CAMBIAR
+    line([locs_MAX_F(i), locs_MAX_F(i)], [0, PteH_aX(locs_MAX_F(1))], 'Color', 'red', 'HandleVisibility', 'off');
+end
+for i = 1:length(locs_MIN_F)
+    line([locs_MIN_F(i), locs_MIN_F(i)], [0, PteH_aX(locs_MIN_F(i))], 'Color', 'red', 'HandleVisibility', 'off');
+end
+plot(sF, 'LineWidth', 1, 'Color', 'black','DisplayName', 'Smoothness');
+yline(0, 'm--', 'LineWidth', 1, 'HandleVisibility', 'off');
+title("Flexion-Extension");
+xlabel("Seconds");
+ylabel("Degrees");
+legend('show');
+grid on;
+
+%% BLAND ALTMAN GRAPHIC
+% 
+% % Read excel data
+% data = readtable('CROM_BlandAltman.xlsx');
+% 
+% differenceF = data.x_auto_manual_Flex;
+% differenceR = data.x_auto_manual_Rot;
+% differenceL = data.x_auto_manual_LatInc;
+% 
+% meanF = data.MeanFlex;
+% meanR = data.MeanRot;
+% meanL = data.MeanLatInc;
+% 
+% 
+% figure(30);
+% scatter(meanF, differenceF, 'black');
+% hold on;
+% yline(0, 'r-', 'LineWidth', 0.5);
+% yline(-0.0321, 'k-', 'LineWidth', 1.5);
+% text(120, -0.0321, 'Mean', 'HorizontalAlignment', 'center', 'VerticalAlignment', 'top');
+% xlabel('Mean of Automated and Manual');
+% ylabel('Automated - Manual');
+% title('Bland-Altman Flex-Ext');
+% hold off;
+% 
+% figure(31);
+% scatter(meanR, differenceR, 'black');
+% hold on;
+% yline(0, 'r-', 'LineWidth', 0.5);
+% yline(-0.6077, 'k-', 'LineWidth', 1.5);
+% text(170, -0.6077, 'Mean', 'HorizontalAlignment', 'center', 'VerticalAlignment', 'top');
+% xlabel('Mean of Automated and Manual');
+% ylabel('Automated - Manual');
+% title('Bland-Altman Rot');
+% hold off;
+% 
+% figure(32);
+% scatter(meanL, differenceL, 'black');
+% hold on;
+% yline(0, 'r-', 'LineWidth', 0.5);
+% yline(-0.4180, 'k-', 'LineWidth', 1.5);
+% text(120, -0.4180, 'Mean', 'HorizontalAlignment', 'center', 'VerticalAlignment', 'top');
+% xlabel('Mean of Automated and Manual');
+% ylabel('Automated - Manual');
+% title('Bland-Altman LatInc');
+% hold off;
+
+%% AUXILIARY FUNCTIONS
 
 function segments = splitConsecutives(indices)
     segments = {};
